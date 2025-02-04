@@ -1,5 +1,9 @@
 from fastapi import FastAPI, Body
 
+from pydantic import BaseModel, Field
+
+from typing import Optional, List
+
 app = FastAPI(title="Mi primera API", description="Api de prueba para aprender FastAPI", version="1.0")
 
 books_list = [
@@ -15,12 +19,33 @@ books_list = [
     {"id": 10, "title": "Anxious People", "author": "Fredrik Backman", "year": 2020, "category": "Fiction"}
 ]
 
+# Definir el modelo de datos
+class Book(BaseModel):
+    id: int # El id es opcional al crear un libro
+    title: str
+    author: str
+    year: int
+    category: str
+
+class BookCreate(BaseModel):
+    id: int = Field(..., gt=0, description="The id of the book")
+    title: str = Field(..., min_length=1, max_length=100, description="The title of the book")
+    author: str = Field(..., min_length=1, max_length=100, description="The author of the book")
+    year: int = Field(..., gt=0, description="The year of the book")
+    category: str = Field(..., min_length=1, max_length=100, description="The category of the book")
+
+class BookUpdate(BaseModel):
+    title: str
+    author: str
+    year: int
+    category: str
+
 @app.get("/", tags=["home"])
 def home():
     return {"Hello": "World"}
 
 @app.get("/books", tags=["books"])
-def get_books():
+def get_books() -> List[Book]: # El tipo de retorno es una lista de tipo Book
     return books_list
 
 @app.get("/books/" , tags=["books"])
@@ -30,38 +55,26 @@ def get_books_by_query(category: str):
             return book
 
 @app.get("/books/{book_id}", tags=["books"])
-def get_book(book_id: int):
+def get_book(book_id: int) -> Book: # El tipo de retorno es un objeto de tipo Book
     for book in books_list:
         if book["id"] == book_id:
             return book
 
 @app.post("/books", tags=["books"])
-def create_book(
-    id: int = Body(),
-    title: str = Body(), 
-    author: str = Body(), 
-    year: int = Body(), 
-    category: str = Body()
-    ):
-    new_book = {"id": id, "title": title, "author": author, "year": year, "category": category}
+def create_book(book: BookCreate) -> Book:
+    new_book = book.model_dump() # Convertir el objeto Pydantic a un diccionario
     books_list.append(new_book)
     return new_book
 
 @app.put("/books/{book_id}", tags=["books"])
-def update_book(
-    book_id: int,
-    title: str = Body(), 
-    author: str = Body(), 
-    year: int = Body(), 
-    category: str = Body()
-    ):
-    for book in books_list:
-        if book["id"] == book_id:
-            book["title"] = title
-            book["author"] = author
-            book["year"] = year
-            book["category"] = category
-            return book
+def update_book(book_id: int, book: BookUpdate) -> Book:
+    for item in books_list:
+        if item["id"] == book_id:
+            item["title"] = book.title
+            item["author"] = book.author
+            item["year"] = book.year
+            item["category"] = book.category
+            return item
 
 @app.delete("/books/{book_id}", tags=["books"])
 def delete_book(book_id: int):
